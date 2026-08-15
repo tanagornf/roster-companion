@@ -10,6 +10,16 @@ Roster Companion adds an account selector beside the `Codex` selector in the off
 > [!IMPORTANT]
 > Releases are currently unsigned, so Microsoft Defender SmartScreen may show **Windows protected your PC** on first launch. Download only from this project's GitHub Releases page and verify the ZIP against `SHA256SUMS.txt`. See [Troubleshooting](docs/TROUBLESHOOTING.md) before bypassing any warning.
 
+## See it in action
+
+Roster Companion places an account selector alongside Codex/ChatGPT selector in the desktop app, so switching accounts and checking usage does not require another window.
+
+![Roster Companion shown beside the ChatGPT desktop app](docs/images/demo-live-context-final.png)
+
+The dropdown shows the active account, aliases, plan, five-hour usage, weekly usage, reset timing, search, refresh, and account actions in one compact view.
+
+![Roster Companion account dropdown](docs/images/demo-dropdown.png)
+
 ## Features
 
 - Automatically detects the account currently used by ChatGPT with a one-time confirmation.
