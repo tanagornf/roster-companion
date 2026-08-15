@@ -1,0 +1,60 @@
+name: Publish release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: windows-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v6
+
+      - name: Validate tag and read version
+        id: version
+        shell: pwsh
+        run: |
+          $version = '${{ github.ref_name }}'.TrimStart('v')
+          if ($version -notmatch '^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$') {
+            throw 'Release tags must use v<major>.<minor>.<patch>.'
+          }
+          "version=$version" >> $env:GITHUB_OUTPUT
+
+      - name: Set up .NET 8
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: 8.0.x
+          cache: true
+          cache-dependency-path: '**/packages.lock.json'
+
+      - name: Restore locked dependencies
+        run: dotnet restore .\ChatGPTRoster.sln --locked-mode
+
+      - name: Scan repository for secrets and personal data
+        shell: pwsh
+        run: .\scripts\Test-RepositorySafety.ps1
+
+      - name: Build, test, audit, and package
+        shell: pwsh
+        run: .\scripts\Build-Release.ps1 -Version '${{ steps.version.outputs.version }}'
+
+      - name: Publish GitHub prerelease
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $version = '${{ steps.version.outputs.version }}'
+          gh release create '${{ github.ref_name }}' `
+            "artifacts/$version/RosterCompanion-$version-win-x64.zip" `
+            "artifacts/$version/SHA256SUMS.txt" `
+            --title "Roster Companion $version" `
+            --notes-file "docs/RELEASE_NOTES_$version.md" `
+            --prerelease `
+            --verify-tag

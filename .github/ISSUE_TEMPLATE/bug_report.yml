@@ -1,0 +1,56 @@
+name: Bug report
+description: Report a reproducible non-security problem.
+title: "[Bug]: "
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Never attach `auth.json`, `%APPDATA%\ChatGPTRoster`, tokens, session files, or screenshots containing real email addresses. Use a private security report for credential or unsafe-switching issues.
+  - type: input
+    id: version
+    attributes:
+      label: Roster Companion version
+      placeholder: 0.1.0
+    validations:
+      required: true
+  - type: input
+    id: windows
+    attributes:
+      label: Windows version
+      placeholder: Windows 11 24H2
+    validations:
+      required: true
+  - type: input
+    id: chatgpt
+    attributes:
+      label: ChatGPT desktop app version
+      description: Use "not installed" when the issue does not involve the Windows ChatGPT desktop app.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Reproduction steps
+      description: Use synthetic account names and redact all personal data.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected result
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual result
+    validations:
+      required: true
+  - type: checkboxes
+    id: safety
+    attributes:
+      label: Safety check
+      options:
+        - label: I removed all tokens, credentials, real emails, and account-storage files.
+          required: true

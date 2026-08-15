@@ -1,0 +1,78 @@
+<Window x:Class="ChatGPTRoster.AboutWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="About Roster Companion"
+        Width="480"
+        SizeToContent="Height"
+        WindowStyle="None"
+        ResizeMode="NoResize"
+        AllowsTransparency="True"
+        Background="Transparent"
+        ShowInTaskbar="False"
+        WindowStartupLocation="CenterOwner">
+    <Border Margin="10"
+            Background="{DynamicResource WindowBackgroundBrush}"
+            TextElement.Foreground="{DynamicResource PrimaryTextBrush}"
+            BorderBrush="{DynamicResource BorderBrush}"
+            BorderThickness="1"
+            CornerRadius="12"
+            Padding="26">
+        <Border.Effect>
+            <DropShadowEffect BlurRadius="16" ShadowDepth="3" Opacity="0.20" />
+        </Border.Effect>
+        <StackPanel>
+            <Grid>
+                <TextBlock Text="Roster Companion" FontSize="21" FontWeight="SemiBold" />
+                <Button HorizontalAlignment="Right"
+                        Click="Close_Click"
+                        Style="{StaticResource IconButtonStyle}"
+                        ToolTip="Close">
+                    <TextBlock Text="&#xE711;" FontFamily="Segoe MDL2 Assets" FontSize="11" />
+                </Button>
+            </Grid>
+
+            <TextBlock Margin="0,8,0,18"
+                       Foreground="{DynamicResource SecondaryTextBrush}"
+                       FontSize="13.5"
+                       LineHeight="19"
+                       TextWrapping="Wrap"><Run Text="A lightweight account and usage manager for the ChatGPT desktop app, built by "/><Run Text="tanagornf" FontWeight="Bold"/><Run Text="."/></TextBlock>
+
+            <TextBlock Text="Local Storage" FontWeight="SemiBold" />
+            <TextBlock Margin="0,4,0,14"
+                       Text="Everything Roster Companion stores, including profiles, credentials, cached usage data, and backups, remains on your device."
+                       Foreground="{DynamicResource SecondaryTextBrush}"
+                       FontSize="13.5"
+                       LineHeight="19"
+                       TextWrapping="Wrap" />
+
+            <TextBlock Text="Zero Tracking" FontWeight="SemiBold" />
+            <TextBlock Margin="0,4,0,14"
+                       Text="No telemetry, ads, analytics, or developer-operated servers."
+                       Foreground="{DynamicResource SecondaryTextBrush}"
+                       FontSize="13.5"
+                       LineHeight="19"
+                       TextWrapping="Wrap" />
+
+            <TextBlock Text="Direct Connections Only" FontWeight="SemiBold" />
+            <TextBlock Margin="0,4,0,14"
+                       Text="Connects exclusively to official OpenAI services when needed for sign-in and usage refresh."
+                       Foreground="{DynamicResource SecondaryTextBrush}"
+                       FontSize="13.5"
+                       LineHeight="19"
+                       TextWrapping="Wrap" />
+
+            <TextBlock Text="Disclaimer" FontWeight="SemiBold" />
+            <TextBlock Margin="0,4,0,18"
+                       Text="An unofficial tool that is not affiliated with or endorsed by OpenAI."
+                       Foreground="{DynamicResource SecondaryTextBrush}"
+                       FontSize="13.5"
+                       LineHeight="19"
+                       TextWrapping="Wrap" />
+
+            <Button Content="Close"
+                    HorizontalAlignment="Right"
+                    Click="Close_Click"
+                    Style="{StaticResource TextButtonStyle}" />
+        </StackPanel>
+    </Border>
+</Window>

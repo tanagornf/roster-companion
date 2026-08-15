@@ -1,0 +1,47 @@
+<Window x:Class="ChatGPTRoster.CompanionDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Roster Companion"
+        Width="456"
+        SizeToContent="Height"
+        WindowStyle="None"
+        ResizeMode="NoResize"
+        AllowsTransparency="True"
+        Background="Transparent"
+        ShowInTaskbar="False"
+        WindowStartupLocation="CenterOwner">
+    <Border Padding="24"
+            TextElement.Foreground="{DynamicResource PrimaryTextBrush}"
+            Background="{DynamicResource WindowBackgroundBrush}"
+            BorderBrush="{DynamicResource BorderBrush}"
+            BorderThickness="1"
+            CornerRadius="12">
+        <StackPanel>
+            <TextBlock x:Name="HeadingText"
+                       FontSize="19"
+                       FontWeight="SemiBold"
+                       TextWrapping="Wrap" />
+            <TextBlock x:Name="MessageText"
+                       Margin="0,10,0,22"
+                       Foreground="{DynamicResource SecondaryTextBrush}"
+                       FontSize="13.5"
+                       LineHeight="19"
+                       TextWrapping="Wrap" />
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                <Button x:Name="CancelButton"
+                        Content="Cancel"
+                        Margin="0,0,8,0"
+                        MinWidth="78"
+                        IsCancel="True"
+                        Style="{StaticResource TextButtonStyle}"
+                        Click="Cancel_Click" />
+                <Button x:Name="ConfirmButton"
+                        Content="Continue"
+                        MinWidth="116"
+                        IsDefault="True"
+                        Style="{StaticResource AccentButtonStyle}"
+                        Click="Confirm_Click" />
+            </StackPanel>
+        </StackPanel>
+    </Border>
+</Window>

@@ -1,0 +1,32 @@
+bin/
+obj/
+.vs/
+.idea/
+*.user
+*.suo
+.DS_Store
+Thumbs.db
+TestResults/
+*.trx
+*.coverage
+*.coveragexml
+
+# Local Roster Companion data and secrets
+auth.json
+profiles/
+managed-homes/
+desktop-session/
+backups/
+logs/
+*.key
+*.pem
+*.pfx
+
+# Build output
+artifacts/
+build/
+dist/
+
+# Local release notes and signing material
+release-notes.local.md
+*.snk
