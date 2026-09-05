@@ -40,6 +40,10 @@ The dropdown shows the active account, aliases, plan, five-hour usage, weekly us
 
 ## Install a release
 
+**[Download v0.1.1 for Windows x64](https://github.com/tanagornf/roster-companion/releases/tag/v0.1.1)** — includes the fix for desktop-wide mouse lag.
+
+Download `RosterCompanion.exe` to run directly, or use the ZIP below for the full package with documentation and license notices. Both builds are self-contained; no separate .NET installation is required.
+
 1. Download `RosterCompanion-<version>-win-x64.zip` and `SHA256SUMS.txt`.
 2. Verify the ZIP hash.
 3. Extract the ZIP.
@@ -71,7 +75,7 @@ dotnet run --project .\src\ChatGPTRoster\ChatGPTRoster.csproj
 Create a self-contained package:
 
 ```powershell
-.\scripts\Build-Release.ps1 -Version 0.1.0
+.\scripts\Build-Release.ps1 -Version 0.1.1
 ```
 
 ## Security boundaries

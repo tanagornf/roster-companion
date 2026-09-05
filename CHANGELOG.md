@@ -4,6 +4,8 @@ All notable changes to this project will be documented here. The format follows 
 
 ## [Unreleased]
 
+## [0.1.1] - 2026-09-06
+
 ### Fixed
 
 - Desktop-wide mouse stutters while ChatGPT/Codex is visible: mouse hooks now use dedicated message loops, and accessibility queries run on a background worker with only the latest click queued.
@@ -40,5 +42,6 @@ All notable changes to this project will be documented here. The format follows 
 - Added bounded backups, validation, and rollback around account activation.
 - Added locked dependency restore, vulnerability auditing, repository safety scanning, and isolated packaged-app startup checks.
 
-[Unreleased]: https://github.com/tanagornf/roster-companion/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/tanagornf/roster-companion/compare/v0.1.1...HEAD
+[0.1.1]: https://github.com/tanagornf/roster-companion/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/tanagornf/roster-companion/releases/tag/v0.1.0

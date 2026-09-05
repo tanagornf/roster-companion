@@ -45,7 +45,7 @@ jobs:
 
       - name: Build self-contained package
         shell: pwsh
-        run: .\scripts\Build-Release.ps1 -Version 0.1.0 -SkipTests
+        run: .\scripts\Build-Release.ps1 -Version 0.1.1 -SkipTests
 
       - name: Upload test results
         if: always()
@@ -58,9 +58,9 @@ jobs:
       - name: Upload Windows package
         uses: actions/upload-artifact@v7
         with:
-          name: RosterCompanion-0.1.0-win-x64
+          name: RosterCompanion-0.1.1-win-x64
           path: |
-            artifacts/0.1.0/RosterCompanion-0.1.0-win-x64.zip
-            artifacts/0.1.0/SHA256SUMS.txt
+            artifacts/0.1.1/RosterCompanion-0.1.1-win-x64.zip
+            artifacts/0.1.1/SHA256SUMS.txt
           if-no-files-found: error
           compression-level: 0

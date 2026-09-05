@@ -2,7 +2,7 @@
 param(
     [Parameter(Mandatory = $false)]
     [ValidatePattern('^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$')]
-    [string]$Version = '0.1.0',
+    [string]$Version = '0.1.1',
 
     [switch]$SkipTests,
     [switch]$SkipLaunchCheck
@@ -93,6 +93,7 @@ Copy-Item -LiteralPath $dotnetNotices -Destination (Join-Path $publishDirectory 
 
 if (-not $SkipLaunchCheck) {
     $smokeRoot = Join-Path ([System.IO.Path]::GetTempPath()) ("RosterCompanion.Smoke." + [Guid]::NewGuid().ToString('N'))
+    Assert-ChildPath -Parent ([System.IO.Path]::GetTempPath()) -Child $smokeRoot
     $smokeData = Join-Path $smokeRoot 'data'
     $smokeCodex = Join-Path $smokeRoot 'codex'
     New-Item -ItemType Directory -Path $smokeData,$smokeCodex -Force | Out-Null
@@ -108,7 +109,7 @@ if (-not $SkipLaunchCheck) {
         $env:ROSTER_COMPANION_DISABLE_AUTOSTART = '1'
         $env:ROSTER_COMPANION_FORCE_DESKTOP_ENROLLMENT = $null
         $env:ROSTER_COMPANION_SMOKE_INSTANCE = [Guid]::NewGuid().ToString('D')
-        $process = Start-Process -FilePath $executablePath -PassThru
+        $process = Start-Process -FilePath $executablePath -WindowStyle Hidden -PassThru
         Start-Sleep -Seconds 3
         if ($process.HasExited) {
             throw "The packaged application exited during startup with code $($process.ExitCode)."
@@ -135,7 +136,7 @@ Compress-Archive -Path (Join-Path $publishDirectory '*') -DestinationPath $zipPa
 $exeHash = (Get-FileHash -LiteralPath $executablePath -Algorithm SHA256).Hash.ToLowerInvariant()
 $zipHash = (Get-FileHash -LiteralPath $zipPath -Algorithm SHA256).Hash.ToLowerInvariant()
 $checksumLines = @(
-    "$exeHash  $packageName/RosterCompanion.exe",
+    "$exeHash  RosterCompanion.exe",
     "$zipHash  $packageName.zip"
 )
 [System.IO.File]::WriteAllLines($checksumPath, $checksumLines, [System.Text.UTF8Encoding]::new($false))

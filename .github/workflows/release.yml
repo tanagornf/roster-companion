@@ -52,6 +52,7 @@ jobs:
         run: |
           $version = '${{ steps.version.outputs.version }}'
           gh release create '${{ github.ref_name }}' `
+            "artifacts/$version/RosterCompanion-$version-win-x64/RosterCompanion.exe" `
             "artifacts/$version/RosterCompanion-$version-win-x64.zip" `
             "artifacts/$version/SHA256SUMS.txt" `
             --title "Roster Companion $version" `

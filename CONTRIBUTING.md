@@ -20,7 +20,7 @@ dotnet test .\ChatGPTRoster.sln --configuration Release --no-build
 Create the same self-contained package used for releases:
 
 ```powershell
-.\scripts\Build-Release.ps1 -Version 0.1.0
+.\scripts\Build-Release.ps1 -Version 0.1.1
 ```
 
 ## Pull requests
