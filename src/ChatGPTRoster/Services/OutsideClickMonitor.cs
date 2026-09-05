@@ -13,6 +13,7 @@ internal sealed class OutsideClickMonitor : IDisposable
     private readonly Dispatcher _dispatcher;
     private readonly Action _outsideClick;
     private readonly NativeMethods.MouseHookDelegate _callback;
+    private readonly MouseHookThread _hookThread;
     private readonly uint _currentProcessId = (uint)Environment.ProcessId;
     private nint _hook;
     private int _callbackPending;
@@ -22,9 +23,12 @@ internal sealed class OutsideClickMonitor : IDisposable
         _dispatcher = dispatcher;
         _outsideClick = outsideClick;
         _callback = OnMouseEvent;
+        _hookThread = new MouseHookThread(InstallHook, UninstallHook);
     }
 
-    public void Start()
+    public void Start() => _hookThread.Start();
+
+    private void InstallHook()
     {
         if (_hook != nint.Zero)
         {
@@ -38,7 +42,9 @@ internal sealed class OutsideClickMonitor : IDisposable
             0);
     }
 
-    public void Stop()
+    public void Stop() => _hookThread.Stop();
+
+    private void UninstallHook()
     {
         if (_hook == nint.Zero)
         {

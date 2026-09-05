@@ -4,6 +4,11 @@ All notable changes to this project will be documented here. The format follows 
 
 ## [Unreleased]
 
+### Fixed
+
+- Desktop-wide mouse stutters while ChatGPT/Codex is visible: mouse hooks now use dedicated message loops, and accessibility queries run on a background worker with only the latest click queued.
+- Late accessibility results no longer restore stale menu suppression after a newer click, menu dismissal, or tracker restart.
+
 ## [0.1.0] - 2026-08-16
 
 ### Added

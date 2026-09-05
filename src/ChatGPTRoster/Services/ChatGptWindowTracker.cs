@@ -23,6 +23,7 @@ public sealed class ChatGptWindowTracker : IDisposable
     private readonly DispatcherTimer _positionTimer;
     private readonly WindowEventMonitor _eventMonitor;
     private readonly ChatGptClickMonitor _clickMonitor;
+    private readonly ClickHitTestRunner _hitTestRunner = new(ChatGptLayerDetector.HitTest);
     private readonly Dispatcher _dispatcher;
     private readonly int _currentProcessId = Environment.ProcessId;
     private nint _lastHandle;
@@ -31,6 +32,8 @@ public sealed class ChatGptWindowTracker : IDisposable
     private bool _clickMenuSuppressed;
     private bool _settingsRouteActive;
     private int _routeCheckGeneration;
+    private int _trackingGeneration;
+    private int _clickGeneration;
     private int _fastPositionFrames;
     private bool _started;
 
@@ -57,6 +60,8 @@ public sealed class ChatGptWindowTracker : IDisposable
 
     public void Start()
     {
+        Interlocked.Increment(ref _trackingGeneration);
+        _hitTestRunner.Invalidate();
         _started = true;
         Poll();
         _eventMonitor.Start();
@@ -68,6 +73,8 @@ public sealed class ChatGptWindowTracker : IDisposable
 
     public void Stop()
     {
+        Interlocked.Increment(ref _trackingGeneration);
+        _hitTestRunner.Invalidate();
         _started = false;
         Interlocked.Increment(ref _routeCheckGeneration);
         _eventMonitor.Stop();
@@ -103,6 +110,9 @@ public sealed class ChatGptWindowTracker : IDisposable
 
         if (eventId is NativeMethods.EVENT_SYSTEM_MENUEND or NativeMethods.EVENT_SYSTEM_MENUPOPUPEND)
         {
+            // A late File/Edit hit must not hide the overlay again after dismissal.
+            _clickGeneration++;
+            _hitTestRunner.Invalidate();
             if (_clickMenuSuppressed
                 && (eventWindow == nint.Zero || IsPackagedChatGptProcess(eventWindow)))
             {
@@ -132,16 +142,36 @@ public sealed class ChatGptWindowTracker : IDisposable
         Poll();
     }
 
-    private void OnChatGptClick(int x, int y, nint _)
+    private void OnChatGptClick(int x, int y, nint eventWindow)
     {
-        if (!_started || _lastHandle == nint.Zero)
+        // Called by the global mouse hook: never query UI Automation here.
+        var generation = Volatile.Read(ref _trackingGeneration);
+        _dispatcher.BeginInvoke(() => ProcessChatGptClickAsync(x, y, eventWindow, generation));
+    }
+
+    private async Task ProcessChatGptClickAsync(int x, int y, nint eventWindow, int generation)
+    {
+        if (!_started || eventWindow != _lastHandle || generation != _trackingGeneration)
         {
             return;
         }
 
-        var hit = ChatGptLayerDetector.HitTest(x, y);
-        var mainWindow = _lastHandle;
-        _dispatcher.BeginInvoke(() => HandleChatGptClick(hit, mainWindow));
+        try
+        {
+            var clickGeneration = ++_clickGeneration;
+            var hit = await _hitTestRunner.TryHitTestAsync(x, y);
+            if (hit is { } value && _started && generation == _trackingGeneration
+                && clickGeneration == _clickGeneration)
+            {
+                HandleChatGptClick(value, eventWindow);
+            }
+        }
+        catch (Exception error)
+        {
+            // Accessibility is best effort; an unavailable provider must not
+            // bring down the companion or escape into a native input callback.
+            Trace($"ChatGPT click hit-test failed: {error.GetType().Name}.");
+        }
     }
 
     private void HandleChatGptClick(ChatGptControlHit hit, nint eventWindow)

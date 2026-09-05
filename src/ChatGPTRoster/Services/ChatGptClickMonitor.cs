@@ -10,6 +10,7 @@ internal sealed class ChatGptClickMonitor : IDisposable
 {
     private readonly Action<int, int, nint> _clicked;
     private readonly NativeMethods.MouseHookDelegate _callback;
+    private readonly MouseHookThread _hookThread;
     private nint _hook;
     private uint _targetProcessId;
 
@@ -17,6 +18,7 @@ internal sealed class ChatGptClickMonitor : IDisposable
     {
         _clicked = clicked;
         _callback = OnMouseEvent;
+        _hookThread = new MouseHookThread(InstallHook, UninstallHook);
     }
 
     public void UpdateTarget(nint target)
@@ -25,7 +27,9 @@ internal sealed class ChatGptClickMonitor : IDisposable
         Volatile.Write(ref _targetProcessId, processId);
     }
 
-    public void Start()
+    public void Start() => _hookThread.Start();
+
+    private void InstallHook()
     {
         if (_hook != nint.Zero)
         {
@@ -39,7 +43,9 @@ internal sealed class ChatGptClickMonitor : IDisposable
             0);
     }
 
-    public void Stop()
+    public void Stop() => _hookThread.Stop();
+
+    private void UninstallHook()
     {
         if (_hook == nint.Zero)
         {
