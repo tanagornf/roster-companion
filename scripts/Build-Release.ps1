@@ -128,20 +128,21 @@ if (-not $SkipLaunchCheck) {
         Write-Host 'Packaged executable startup check passed.'
     }
     finally {
-        Get-Process -Name RosterCompanion -ErrorAction SilentlyContinue | Where-Object {
-            try { [string]::Equals($_.Path, $smokeExecutable, [StringComparison]::OrdinalIgnoreCase) }
-            catch { $false }
-        } | ForEach-Object {
-            Stop-Process -Id $_.Id -ErrorAction SilentlyContinue
-            Wait-Process -Id $_.Id -ErrorAction SilentlyContinue
-        }
         $env:CHATGPT_ROSTER_DATA_ROOT = $previousDataRoot
         $env:CHATGPT_ROSTER_CODEX_HOME = $previousCodexHome
         $env:ROSTER_COMPANION_DISABLE_AUTOSTART = $previousDisableAutostart
         $env:ROSTER_COMPANION_FORCE_DESKTOP_ENROLLMENT = $previousForceDesktopEnrollment
         $env:ROSTER_COMPANION_SMOKE_INSTANCE = $previousSmokeInstance
+        for ($attempt = 0; $attempt -lt 20 -and (Test-Path -LiteralPath $smokeRoot); $attempt++) {
+            Get-Process -Name RosterCompanion -ErrorAction SilentlyContinue | Where-Object {
+                try { [string]::Equals($_.Path, $smokeExecutable, [StringComparison]::OrdinalIgnoreCase) }
+                catch { $false }
+            } | ForEach-Object { Stop-Process -Id $_.Id -Force -ErrorAction SilentlyContinue }
+            Start-Sleep -Milliseconds 250
+            Remove-Item -LiteralPath $smokeRoot -Recurse -Force -ErrorAction SilentlyContinue
+        }
         if (Test-Path -LiteralPath $smokeRoot) {
-            Remove-Item -LiteralPath $smokeRoot -Recurse -Force
+            throw "The smoke-test process or its files could not be cleaned up: $smokeRoot"
         }
     }
 }
