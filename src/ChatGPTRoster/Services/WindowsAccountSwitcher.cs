@@ -27,17 +27,21 @@ public sealed class WindowsAccountSwitcher : IAccountSwitcher
         CredentialSwitchReceipt? receipt = null;
         var closed = false;
         AccountSwitchException? switchFailure = null;
+        var stage = "closing the desktop app";
 
         try
         {
             if (processSnapshot.WasRunning)
             {
-                await _desktopProcessService.CloseAsync(cancellationToken);
                 closed = true;
+                await _desktopProcessService.CloseAsync(cancellationToken);
             }
 
+            stage = "backing up the desktop session";
             await _desktopSessionService.BackupAsync(currentProfile, cancellationToken);
+            stage = "activating account credentials";
             receipt = await _credentialSwitcher.ActivateAsync(currentProfile, targetProfile, cancellationToken);
+            stage = "restoring the target desktop session";
             await _desktopSessionService.RestoreOrClearAsync(targetProfile, cancellationToken);
         }
         catch (Exception exception)
@@ -58,7 +62,7 @@ public sealed class WindowsAccountSwitcher : IAccountSwitcher
             }
 
             switchFailure ??= new AccountSwitchException(
-                "Account switching failed. The previous account was preserved.",
+                $"Account switching failed while {stage}. The previous account was preserved.\n\n{exception.Message}",
                 exception);
         }
 

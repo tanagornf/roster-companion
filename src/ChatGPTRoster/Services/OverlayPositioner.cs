@@ -13,8 +13,10 @@ public sealed record OverlayPlacement(
 
 public static class OverlayPositioner
 {
-    public const double SelectorOffsetX = 84;
-    public const double SelectorOffsetY = 42;
+    // Keep clear of the native caption buttons and the File/Edit/View/Help menus.
+    public const double WindowControlsReserve = 160;
+    public const double TitleBarMenusReserve = 320;
+    public const double SelectorOffsetY = 4;
     public const double SelectorPreferredWidth = 122;
     public const double SelectorMinimumWidth = 68;
     public const double SelectorHeight = 34;
@@ -28,7 +30,7 @@ public static class OverlayPositioner
         uint dpi,
         double selectorWidth = SelectorPreferredWidth)
     {
-        if (dpi == 0 || chatWindowPixels.Width < 560 || chatWindowPixels.Height < 360)
+        if (dpi == 0)
         {
             return null;
         }
@@ -37,11 +39,17 @@ public static class OverlayPositioner
         var window = ScaleDown(chatWindowPixels, scale);
         var workArea = ScaleDown(workAreaPixels, scale);
         var width = Math.Clamp(selectorWidth, SelectorMinimumWidth, SelectorPreferredWidth);
-        var left = window.Left + SelectorOffsetX;
+        if (window.Width < TitleBarMenusReserve + width + WindowControlsReserve + WorkAreaMargin
+            || window.Height < 360)
+        {
+            return null;
+        }
+
+        var left = window.Right - WindowControlsReserve - width;
         var top = window.Top + SelectorOffsetY;
         var dropdownTop = top + SelectorHeight + DropdownGap;
         var dropdownLeft = Math.Clamp(
-            left,
+            left + width - DropdownWidth,
             workArea.Left + WorkAreaMargin,
             Math.Max(workArea.Left + WorkAreaMargin, workArea.Right - DropdownWidth - WorkAreaMargin));
         var maxHeight = Math.Max(220, workArea.Bottom - dropdownTop - WorkAreaMargin);

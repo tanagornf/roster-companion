@@ -25,7 +25,11 @@ Finish any active Codex task first. If task state cannot be confirmed, the defau
 
 ## ChatGPT did not reopen
 
-Open the ChatGPT desktop app manually. Roster Companion only reopens an executable whose installed OpenAI package path has been verified.
+Open the ChatGPT desktop app manually. The selected account remains active when only reopening fails. Roster Companion uses the running app's registered Windows application identity to reopen it and waits up to 20 seconds for a desktop window. If that identity is unavailable, it uses the verified desktop executable from the installed OpenAI package; bundled CLI executables are never used as desktop launchers.
+
+If both ChatGPT and Roster Companion disappear during switching, use a build with the process shutdown fix. Older builds terminated the entire desktop process tree, which could also terminate a companion launched from a Codex task before credential activation and reopening. Shutdown now terminates only individually verified package processes.
+
+Roster also starts independently of the Windows process job used by Codex tools. Without this, closing ChatGPT could terminate Roster before credential activation even with the process tree fix. Update and restart Roster; its startup now preserves the switching process when ChatGPT exits.
 
 ## Recovering from an interrupted switch
 

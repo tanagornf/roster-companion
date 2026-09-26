@@ -7,6 +7,20 @@ namespace ChatGPTRoster.Tests;
 public sealed class WindowsAccountSwitcherTests
 {
     [TestMethod]
+    public async Task Switch_PartialCloseFailureStillReopensWithoutActivatingCredentials()
+    {
+        var process = new FakeDesktopProcessService(wasRunning: true) { FailClose = true };
+        var credentials = new FakeCredentialSwitcher();
+        var service = new WindowsAccountSwitcher(process, new FakeDesktopSessionService(), credentials);
+
+        await Assert.ThrowsExceptionAsync<AccountSwitchException>(() => service.SwitchAsync(
+            new AccountProfile { Id = "current" }, new AccountProfile { Id = "target" }));
+
+        Assert.IsFalse(credentials.Activated);
+        Assert.IsTrue(process.Reopened, "Shutdown may close the window before reporting a failure.");
+    }
+
+    [TestMethod]
     public async Task Switch_PostActivationFailureRollsBackAndReopensDesktop()
     {
         var process = new FakeDesktopProcessService(wasRunning: true);
@@ -60,6 +74,7 @@ public sealed class WindowsAccountSwitcherTests
         public bool Closed { get; private set; }
         public bool Reopened { get; private set; }
         public bool FailReopen { get; init; }
+        public bool FailClose { get; init; }
 
         public Task<DesktopProcessSnapshot> CaptureAsync(CancellationToken cancellationToken = default) =>
             Task.FromResult(new DesktopProcessSnapshot(_wasRunning, @"C:\verified\Codex.exe"));
@@ -67,6 +82,7 @@ public sealed class WindowsAccountSwitcherTests
         public Task CloseAsync(CancellationToken cancellationToken = default)
         {
             Closed = true;
+            if (FailClose) throw new InvalidOperationException("shutdown failed after closing the window");
             return Task.CompletedTask;
         }
 

@@ -4,6 +4,18 @@ All notable changes to this project will be documented here. The format follows 
 
 ## [Unreleased]
 
+## [0.1.2] - 2026-09-27
+
+### Changed
+
+- Moved the account selector into the title bar, left of the window controls, to avoid overlapping the updated Codex sidebar. The dropdown opens below it and narrow windows hide the selector before it overlaps the menus.
+
+### Fixed
+
+- Account-switch reopening now activates the registered Windows desktop app and waits for its window. Bundled CLI executables are excluded from launcher selection, and a missing launcher or failed startup is reported instead of silently succeeding.
+- Closing ChatGPT during an account switch no longer terminates Roster Companion along with the desktop process tree or its launching job.
+- Starting a new copy while an older one is running now explains how to finish the update.
+
 ## [0.1.1] - 2026-09-06
 
 ### Fixed
@@ -42,6 +54,7 @@ All notable changes to this project will be documented here. The format follows 
 - Added bounded backups, validation, and rollback around account activation.
 - Added locked dependency restore, vulnerability auditing, repository safety scanning, and isolated packaged-app startup checks.
 
-[Unreleased]: https://github.com/tanagornf/roster-companion/compare/v0.1.1...HEAD
+[Unreleased]: https://github.com/tanagornf/roster-companion/compare/v0.1.2...HEAD
+[0.1.2]: https://github.com/tanagornf/roster-companion/compare/v0.1.1...v0.1.2
 [0.1.1]: https://github.com/tanagornf/roster-companion/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/tanagornf/roster-companion/releases/tag/v0.1.0

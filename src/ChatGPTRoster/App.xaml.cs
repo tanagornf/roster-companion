@@ -1,5 +1,6 @@
 using System.Threading;
 using System.Windows;
+using ChatGPTRoster.Services;
 
 namespace ChatGPTRoster;
 
@@ -10,9 +11,31 @@ public partial class App : Application
     protected override void OnStartup(StartupEventArgs e)
     {
         base.OnStartup(e);
+        try
+        {
+            if (IndependentStartup.RelaunchOutsideJob())
+            {
+                Shutdown();
+                return;
+            }
+        }
+        catch (Exception exception)
+        {
+            MessageBox.Show(
+                $"Roster Companion could not start independently of ChatGPT. Open it from Windows Explorer.\n\n{exception.Message}",
+                "Roster Companion", MessageBoxButton.OK, MessageBoxImage.Error);
+            Shutdown(1);
+            return;
+        }
         _singleInstance = new Mutex(initiallyOwned: true, GetSingleInstanceName(), out var createdNew);
         if (!createdNew)
         {
+            if (!e.Args.Contains("--background", StringComparer.OrdinalIgnoreCase))
+            {
+                MessageBox.Show(
+                    "Roster Companion is already running. Exit the older copy from its gear menu, then run this executable again to finish updating.",
+                    "Roster Companion is already running", MessageBoxButton.OK, MessageBoxImage.Information);
+            }
             Shutdown();
             return;
         }

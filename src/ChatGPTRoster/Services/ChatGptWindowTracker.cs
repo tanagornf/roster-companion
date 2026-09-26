@@ -332,8 +332,8 @@ public sealed class ChatGptWindowTracker : IDisposable
             return;
         }
 
-        var anchorX = (int)Math.Round(bounds.Left + (OverlayPositioner.SelectorOffsetX + placement.SelectorWidth / 2) * dpi / 96d);
-        var anchorY = (int)Math.Round(bounds.Top + (OverlayPositioner.SelectorOffsetY + placement.SelectorHeight / 2) * dpi / 96d);
+        var anchorX = (int)Math.Round((placement.SelectorLeft + placement.SelectorWidth / 2) * dpi / 96d);
+        var anchorY = (int)Math.Round((placement.SelectorTop + placement.SelectorHeight / 2) * dpi / 96d);
         var isAnchorVisible = !_clickMenuSuppressed
             && !_settingsRouteActive
             && !IsCoveredAtPoint(handle, anchorX, anchorY);

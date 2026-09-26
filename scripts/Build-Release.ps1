@@ -2,7 +2,7 @@
 param(
     [Parameter(Mandatory = $false)]
     [ValidatePattern('^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$')]
-    [string]$Version = '0.1.1',
+    [string]$Version = '0.1.2',
 
     [switch]$SkipTests,
     [switch]$SkipLaunchCheck
@@ -96,7 +96,9 @@ if (-not $SkipLaunchCheck) {
     Assert-ChildPath -Parent ([System.IO.Path]::GetTempPath()) -Child $smokeRoot
     $smokeData = Join-Path $smokeRoot 'data'
     $smokeCodex = Join-Path $smokeRoot 'codex'
+    $smokeExecutable = Join-Path $smokeRoot 'RosterCompanion.exe'
     New-Item -ItemType Directory -Path $smokeData,$smokeCodex -Force | Out-Null
+    Copy-Item -LiteralPath $executablePath -Destination $smokeExecutable
     $previousDataRoot = $env:CHATGPT_ROSTER_DATA_ROOT
     $previousCodexHome = $env:CHATGPT_ROSTER_CODEX_HOME
     $previousDisableAutostart = $env:ROSTER_COMPANION_DISABLE_AUTOSTART
@@ -109,17 +111,29 @@ if (-not $SkipLaunchCheck) {
         $env:ROSTER_COMPANION_DISABLE_AUTOSTART = '1'
         $env:ROSTER_COMPANION_FORCE_DESKTOP_ENROLLMENT = $null
         $env:ROSTER_COMPANION_SMOKE_INSTANCE = [Guid]::NewGuid().ToString('D')
-        $process = Start-Process -FilePath $executablePath -WindowStyle Hidden -PassThru
-        Start-Sleep -Seconds 3
-        if ($process.HasExited) {
-            throw "The packaged application exited during startup with code $($process.ExitCode)."
+        $process = Start-Process -FilePath $smokeExecutable -WindowStyle Hidden -PassThru
+        $deadline = [Diagnostics.Stopwatch]::StartNew()
+        $running = @()
+        do {
+            Start-Sleep -Milliseconds 250
+            $running = @(Get-Process -Name RosterCompanion -ErrorAction SilentlyContinue | Where-Object {
+                try { [string]::Equals($_.Path, $smokeExecutable, [StringComparison]::OrdinalIgnoreCase) }
+                catch { $false }
+            })
+            if ($running.Count -gt 0 -and $deadline.Elapsed.TotalSeconds -ge 3) { break }
+        } while ($deadline.Elapsed.TotalSeconds -lt 6)
+        if ($running.Count -eq 0) {
+            throw 'The packaged application was not running after startup.'
         }
         Write-Host 'Packaged executable startup check passed.'
     }
     finally {
-        if ($null -ne $process -and -not $process.HasExited) {
-            Stop-Process -Id $process.Id
-            Wait-Process -Id $process.Id -ErrorAction SilentlyContinue
+        Get-Process -Name RosterCompanion -ErrorAction SilentlyContinue | Where-Object {
+            try { [string]::Equals($_.Path, $smokeExecutable, [StringComparison]::OrdinalIgnoreCase) }
+            catch { $false }
+        } | ForEach-Object {
+            Stop-Process -Id $_.Id -ErrorAction SilentlyContinue
+            Wait-Process -Id $_.Id -ErrorAction SilentlyContinue
         }
         $env:CHATGPT_ROSTER_DATA_ROOT = $previousDataRoot
         $env:CHATGPT_ROSTER_CODEX_HOME = $previousCodexHome

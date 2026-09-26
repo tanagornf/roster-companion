@@ -2,7 +2,7 @@
 
 **A lightweight account and usage manager for the ChatGPT desktop app**
 
-Roster Companion adds an account selector beside the `Codex` selector in the official Windows ChatGPT app. It runs as a separate process, does not inject into or modify ChatGPT, and disappears whenever ChatGPT is minimized, closed, or covered by another application.
+Roster Companion adds an account selector in the title bar, just left of the window controls, in the official Windows ChatGPT app. It runs as a separate process, does not inject into or modify ChatGPT, and disappears whenever ChatGPT is minimized, closed, or covered by another application.
 
 > [!WARNING]
 > Roster Companion is pre-release, unofficial software. Account switching and usage retrieval depend partly on local compatibility surfaces that may change when ChatGPT is updated. Finish active Codex tasks before changing accounts.
@@ -12,7 +12,7 @@ Roster Companion adds an account selector beside the `Codex` selector in the off
 
 ## See it in action
 
-Roster Companion places an account selector alongside Codex/ChatGPT selector in the desktop app, so switching accounts and checking usage does not require another window.
+Roster Companion places an account selector in the desktop app's title bar, so switching accounts and checking usage does not require another window. The screenshots below show the previous placement beside the Codex/ChatGPT selector.
 
 ![Roster Companion shown beside the ChatGPT desktop app](docs/images/demo-live-context-final.png)
 
@@ -40,15 +40,16 @@ The dropdown shows the active account, aliases, plan, five-hour usage, weekly us
 
 ## Install a release
 
-**[Download v0.1.1 for Windows x64](https://github.com/tanagornf/roster-companion/releases/tag/v0.1.1)** — includes the fix for desktop-wide mouse lag.
+**[Download RosterCompanion.exe for Windows x64](https://github.com/tanagornf/roster-companion/releases/download/v0.1.2/RosterCompanion.exe)** — save it in a permanent folder and double-click it. No installer or separate .NET installation is required.
 
-Download `RosterCompanion.exe` to run directly, or use the ZIP below for the full package with documentation and license notices. Both builds are self-contained; no separate .NET installation is required.
+The [v0.1.2 release page](https://github.com/tanagornf/roster-companion/releases/tag/v0.1.2) also has a ZIP with documentation and license notices, plus `SHA256SUMS.txt` for verifying either download.
 
-1. Download `RosterCompanion-<version>-win-x64.zip` and `SHA256SUMS.txt`.
-2. Verify the ZIP hash.
-3. Extract the ZIP.
-4. Run `RosterCompanion.exe`.
-5. Bring ChatGPT to the foreground. Confirm the detected current account once.
+1. Save `RosterCompanion.exe` in a permanent folder and run it. If using the ZIP, extract it first.
+2. Bring ChatGPT to the foreground. Confirm the detected current account once.
+
+### Updating an older copy
+
+Exit the running Roster Companion using **gear menu → Exit Roster Companion**. Replace its old `RosterCompanion.exe` with the new download in the same folder, then run the new EXE. If you saved the new EXE in a different folder, you can delete the old EXE after exiting it. Do not delete `%APPDATA%\ChatGPTRoster`: that folder contains your accounts and settings, and the new version reads it automatically. Running the new EXE updates the **Start with Windows** path if that setting is enabled. Roster Companion does not update itself automatically; launching a second copy while the old one runs shows an update reminder.
 
 Roster Companion waits silently when ChatGPT is not open. Use the gear icon in the attached dropdown for **Start with Windows**, **About**, and **Exit Roster Companion**.
 
@@ -75,7 +76,7 @@ dotnet run --project .\src\ChatGPTRoster\ChatGPTRoster.csproj
 Create a self-contained package:
 
 ```powershell
-.\scripts\Build-Release.ps1 -Version 0.1.1
+.\scripts\Build-Release.ps1 -Version 0.1.2
 ```
 
 ## Security boundaries

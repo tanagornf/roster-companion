@@ -45,7 +45,12 @@ jobs:
 
       - name: Build self-contained package
         shell: pwsh
-        run: .\scripts\Build-Release.ps1 -Version 0.1.1 -SkipTests
+        id: package
+        run: |
+          $project = [xml](Get-Content .\src\ChatGPTRoster\ChatGPTRoster.csproj)
+          $version = $project.Project.PropertyGroup.Version
+          .\scripts\Build-Release.ps1 -Version $version -SkipTests
+          "version=$version" >> $env:GITHUB_OUTPUT
 
       - name: Upload test results
         if: always()
@@ -58,9 +63,10 @@ jobs:
       - name: Upload Windows package
         uses: actions/upload-artifact@v7
         with:
-          name: RosterCompanion-0.1.1-win-x64
+          name: RosterCompanion-${{ steps.package.outputs.version }}-win-x64
           path: |
-            artifacts/0.1.1/RosterCompanion-0.1.1-win-x64.zip
-            artifacts/0.1.1/SHA256SUMS.txt
+            artifacts/${{ steps.package.outputs.version }}/RosterCompanion-${{ steps.package.outputs.version }}-win-x64/RosterCompanion.exe
+            artifacts/${{ steps.package.outputs.version }}/RosterCompanion-${{ steps.package.outputs.version }}-win-x64.zip
+            artifacts/${{ steps.package.outputs.version }}/SHA256SUMS.txt
           if-no-files-found: error
           compression-level: 0

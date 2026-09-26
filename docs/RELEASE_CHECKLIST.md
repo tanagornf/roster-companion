@@ -37,6 +37,8 @@ Use this checklist for every public version. Automated items should pass in CI; 
 ## Clean-machine verification
 
 - [ ] Test the ZIP on a separate, fully updated Windows 10 or 11 x64 PC or VM.
+- [ ] Download and run the standalone EXE on a clean Windows PC or VM.
+- [ ] Exit an older running version, replace its EXE, and confirm saved accounts and the Start with Windows path still work.
 - [ ] Confirm it starts without a separately installed .NET runtime.
 - [ ] Confirm SmartScreen behavior is documented for the unsigned build.
 - [ ] Confirm no developer account, alias, email, credential, or absolute development path is present.
@@ -48,7 +50,7 @@ Use this checklist for every public version. Automated items should pass in CI; 
 - [ ] Update `CHANGELOG.md` and project version.
 - [ ] Review README compatibility and security warnings.
 - [ ] Verify the release tag is `v<version>` and matches the binary version.
-- [ ] Attach the ZIP and `SHA256SUMS.txt` to the GitHub Release.
+- [ ] Attach the standalone EXE, ZIP, and `SHA256SUMS.txt` to the GitHub Release.
 - [ ] Compare the uploaded asset's SHA-256 value with the locally generated checksum.
 
 Do not mark the release verified when any required manual item was skipped. Record the tested Windows and ChatGPT desktop app versions in the release notes.

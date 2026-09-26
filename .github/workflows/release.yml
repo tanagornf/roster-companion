@@ -25,6 +25,13 @@ jobs:
           if ($version -notmatch '^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$') {
             throw 'Release tags must use v<major>.<minor>.<patch>.'
           }
+          $project = [xml](Get-Content .\src\ChatGPTRoster\ChatGPTRoster.csproj)
+          if ($project.Project.PropertyGroup.Version -ne $version) {
+            throw "Tag version $version does not match project version $($project.Project.PropertyGroup.Version)."
+          }
+          if (-not (Test-Path -LiteralPath "docs/RELEASE_NOTES_$version.md")) {
+            throw "Release notes for $version are missing."
+          }
           "version=$version" >> $env:GITHUB_OUTPUT
 
       - name: Set up .NET 8
