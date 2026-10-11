@@ -44,6 +44,28 @@ public sealed class WindowsAccountSwitcherTests
     }
 
     [TestMethod]
+    public async Task Switch_CancellationAfterActivationStillRestoresPreviousAccountAndSession()
+    {
+        using var cancellation = new CancellationTokenSource();
+        var process = new FakeDesktopProcessService(wasRunning: true);
+        var sessions = new FakeDesktopSessionService { BeforeTargetRestore = cancellation.Cancel };
+        var credentials = new FakeCredentialSwitcher();
+        var service = new WindowsAccountSwitcher(process, sessions, credentials);
+
+        var exception = await Assert.ThrowsExceptionAsync<AccountSwitchException>(() => service.SwitchAsync(
+            new AccountProfile { Id = "current" },
+            new AccountProfile { Id = "target" },
+            cancellation.Token));
+
+        Assert.IsFalse(exception.AccountChanged);
+        Assert.IsTrue(credentials.RolledBack);
+        CollectionAssert.AreEqual(
+            new[] { "backup:current", "restore:target", "restore:current" }, sessions.Events);
+        Assert.IsTrue(process.Reopened);
+        Assert.IsInstanceOfType<OperationCanceledException>(exception.InnerException);
+    }
+
+    [TestMethod]
     public async Task Switch_ReopenFailureReportsThatAccountChanged()
     {
         var process = new FakeDesktopProcessService(wasRunning: true) { FailReopen = true };
@@ -99,6 +121,7 @@ public sealed class WindowsAccountSwitcherTests
     {
         public List<string> Events { get; } = [];
         public bool FailTargetRestore { get; init; }
+        public Action? BeforeTargetRestore { get; init; }
 
         public Task BackupAsync(AccountProfile profile, CancellationToken cancellationToken = default)
         {
@@ -109,6 +132,8 @@ public sealed class WindowsAccountSwitcherTests
         public Task RestoreOrClearAsync(AccountProfile profile, CancellationToken cancellationToken = default)
         {
             Events.Add($"restore:{profile.Id}");
+            if (profile.Id == "target") BeforeTargetRestore?.Invoke();
+            cancellationToken.ThrowIfCancellationRequested();
             if (FailTargetRestore && profile.Id == "target")
             {
                 throw new IOException("restore failed");
@@ -136,6 +161,7 @@ public sealed class WindowsAccountSwitcherTests
             CredentialSwitchReceipt receipt,
             CancellationToken cancellationToken = default)
         {
+            cancellationToken.ThrowIfCancellationRequested();
             RolledBack = true;
             return Task.CompletedTask;
         }

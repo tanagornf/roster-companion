@@ -55,7 +55,8 @@ public sealed partial class CodexUsageService : IUsageService
         HttpResponseMessage response;
         try
         {
-            response = await _httpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
+            // Buffer the small response so HttpClient's timeout also covers reading the body.
+            response = await _httpClient.SendAsync(request, HttpCompletionOption.ResponseContentRead, cancellationToken);
         }
         catch (HttpRequestException)
         {
@@ -103,6 +104,11 @@ public sealed partial class CodexUsageService : IUsageService
 
     private static UsageSnapshot ParseUsage(JsonElement root)
     {
+        if (root.ValueKind != JsonValueKind.Object)
+        {
+            throw new UsageServiceException("The usage service returned an unexpected response.");
+        }
+
         var snapshot = new UsageSnapshot
         {
             Plan = PlanName.Normalize(GetString(root, "plan_type")),
@@ -111,13 +117,11 @@ public sealed partial class CodexUsageService : IUsageService
 
         if (!root.TryGetProperty("rate_limit", out var rateLimit) || rateLimit.ValueKind != JsonValueKind.Object)
         {
-            snapshot.ErrorMessage = "Usage windows were not included in the response.";
-            return snapshot;
+            throw new UsageServiceException("Usage windows were not included in the response.");
         }
 
-        var limitReached = GetBoolean(rateLimit, "limit_reached") is true;
-        var first = ParseWindow(rateLimit, "primary_window", limitReached);
-        var second = ParseWindow(rateLimit, "secondary_window", limitReached);
+        var first = ParseWindow(rateLimit, "primary_window");
+        var second = ParseWindow(rateLimit, "secondary_window");
 
         foreach (var window in new[] { first, second }.Where(window => window is not null))
         {
@@ -131,10 +135,15 @@ public sealed partial class CodexUsageService : IUsageService
             }
         }
 
+        if (snapshot.ShortTerm is null && snapshot.Weekly is null)
+        {
+            throw new UsageServiceException("Usage windows were not included in the response.");
+        }
+
         return snapshot;
     }
 
-    private static UsageWindow? ParseWindow(JsonElement container, string propertyName, bool limitReached)
+    private static UsageWindow? ParseWindow(JsonElement container, string propertyName)
     {
         if (!container.TryGetProperty(propertyName, out var element) || element.ValueKind != JsonValueKind.Object)
         {
@@ -144,13 +153,14 @@ public sealed partial class CodexUsageService : IUsageService
         var usedPercent = GetDouble(element, "used_percent");
         var windowSeconds = GetDouble(element, "limit_window_seconds");
         var resetAt = ParseResetAt(element);
-        if (usedPercent is null && resetAt is null)
+        if (usedPercent is null || !double.IsFinite(usedPercent.Value))
         {
             return null;
         }
 
         var label = windowSeconds is >= 604000 and <= 605000 ? "Weekly" : "5-hour";
-        var remaining = limitReached ? 0 : 100 - (usedPercent ?? 100);
+        // The aggregate limit flag can be set when only one window is exhausted.
+        var remaining = 100 - usedPercent.Value;
         return new UsageWindow
         {
             Label = label,
@@ -190,11 +200,6 @@ public sealed partial class CodexUsageService : IUsageService
     private static string? GetString(JsonElement element, string propertyName) =>
         element.TryGetProperty(propertyName, out var value) && value.ValueKind == JsonValueKind.String
             ? value.GetString()
-            : null;
-
-    private static bool? GetBoolean(JsonElement element, string propertyName) =>
-        element.TryGetProperty(propertyName, out var value) && value.ValueKind is JsonValueKind.True or JsonValueKind.False
-            ? value.GetBoolean()
             : null;
 
     private static double? GetDouble(JsonElement element, string propertyName) =>

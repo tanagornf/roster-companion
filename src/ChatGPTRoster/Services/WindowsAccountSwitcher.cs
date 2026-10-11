@@ -50,8 +50,9 @@ public sealed class WindowsAccountSwitcher : IAccountSwitcher
             {
                 try
                 {
-                    await _credentialSwitcher.RollbackAsync(receipt, cancellationToken);
-                    await _desktopSessionService.RestoreOrClearAsync(currentProfile, cancellationToken);
+                    // Cancellation stops the switch, but must not prevent restoring the old account.
+                    await _credentialSwitcher.RollbackAsync(receipt, CancellationToken.None);
+                    await _desktopSessionService.RestoreOrClearAsync(currentProfile, CancellationToken.None);
                 }
                 catch (Exception recoveryException)
                 {

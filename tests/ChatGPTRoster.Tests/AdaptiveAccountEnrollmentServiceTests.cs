@@ -27,6 +27,60 @@ public sealed class AdaptiveAccountEnrollmentServiceTests
     }
 
     [TestMethod]
+    public async Task Enroll_SessionBackupFailurePreservesLiveSessionAndReopensDesktop()
+    {
+        var root = CreateRoot();
+        try
+        {
+            var paths = PreparePaths(root);
+            var processes = new FakeProcesses { IsRunning = true };
+            var sessions = new FakeSessions { FailBackup = true };
+            var service = new AdaptiveAccountEnrollmentService(
+                paths, new MissingCli(), new FakeAuthReader(), processes, sessions, _ => true);
+
+            var exception = await Assert.ThrowsExceptionAsync<AccountEnrollmentException>(
+                () => service.EnrollAsync(CurrentProfile(paths)));
+
+            Assert.AreEqual("previous-credential", File.ReadAllText(Path.Combine(paths.AmbientCodexHome, "auth.json")));
+            CollectionAssert.AreEqual(new[] { "backup:current" }, sessions.Events);
+            Assert.AreEqual(1, processes.CloseCount);
+            Assert.AreEqual(1, processes.ReopenCount);
+            Assert.IsInstanceOfType<IOException>(exception.InnerException);
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
+    [TestMethod]
+    public async Task Enroll_PartialCloseFailureReopensWithoutAttemptingCredentialRecovery()
+    {
+        var root = CreateRoot();
+        try
+        {
+            var paths = PreparePaths(root);
+            var processes = new FakeProcesses { IsRunning = true, FailClose = true };
+            var sessions = new FakeSessions();
+            var service = new AdaptiveAccountEnrollmentService(
+                paths, new MissingCli(), new FakeAuthReader(), processes, sessions, _ => true);
+
+            var exception = await Assert.ThrowsExceptionAsync<AccountEnrollmentException>(
+                () => service.EnrollAsync(CurrentProfile(paths)));
+
+            Assert.AreEqual("previous-credential", File.ReadAllText(Path.Combine(paths.AmbientCodexHome, "auth.json")));
+            Assert.AreEqual(0, sessions.Events.Count);
+            Assert.AreEqual(1, processes.CloseCount);
+            Assert.AreEqual(1, processes.ReopenCount);
+            Assert.IsInstanceOfType<IOException>(exception.InnerException);
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
+    [TestMethod]
     public async Task Enroll_DesktopImportFailureRestoresPreviousCredentialAndSession()
     {
         var root = CreateRoot();
@@ -97,20 +151,39 @@ public sealed class AdaptiveAccountEnrollmentServiceTests
 
     private sealed class FakeProcesses : IDesktopProcessService
     {
-        public Task<DesktopProcessSnapshot> CaptureAsync(CancellationToken cancellationToken = default) =>
-            Task.FromResult(new DesktopProcessSnapshot(false, null));
+        public bool IsRunning { get; set; }
+        public bool FailClose { get; init; }
+        public int CloseCount { get; private set; }
+        public int ReopenCount { get; private set; }
 
-        public Task CloseAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
-        public Task ReopenAsync(DesktopProcessSnapshot snapshot, CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public Task<DesktopProcessSnapshot> CaptureAsync(CancellationToken cancellationToken = default) =>
+            Task.FromResult(new DesktopProcessSnapshot(IsRunning, null));
+
+        public Task CloseAsync(CancellationToken cancellationToken = default)
+        {
+            CloseCount++;
+            IsRunning = false;
+            if (FailClose) throw new IOException("Shutdown failed after closing the window.");
+            return Task.CompletedTask;
+        }
+
+        public Task ReopenAsync(DesktopProcessSnapshot snapshot, CancellationToken cancellationToken = default)
+        {
+            ReopenCount++;
+            IsRunning = true;
+            return Task.CompletedTask;
+        }
     }
 
     private sealed class FakeSessions : IDesktopSessionService
     {
         public List<string> Events { get; } = [];
+        public bool FailBackup { get; init; }
 
         public Task BackupAsync(AccountProfile profile, CancellationToken cancellationToken = default)
         {
             Events.Add($"backup:{profile.Id}");
+            if (FailBackup) throw new IOException("The live session could not be backed up.");
             return Task.CompletedTask;
         }
 

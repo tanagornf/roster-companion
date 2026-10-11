@@ -86,7 +86,9 @@ public sealed class AuthFileReader : IAuthFileReader
                 throw new AuthFileException("API-key profiles do not expose ChatGPT subscription usage.");
             }
 
-            if (!root.TryGetProperty("tokens", out var tokens) || tokens.ValueKind != JsonValueKind.Object)
+            if (root.ValueKind != JsonValueKind.Object
+                || !root.TryGetProperty("tokens", out var tokens)
+                || tokens.ValueKind != JsonValueKind.Object)
             {
                 throw new AuthFileException("The authentication file is missing its token container.");
             }

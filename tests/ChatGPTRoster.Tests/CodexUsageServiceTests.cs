@@ -90,6 +90,97 @@ public sealed class CodexUsageServiceTests
         Assert.AreEqual(58, snapshot.Weekly?.RemainingPercent);
     }
 
+    [DataTestMethod]
+    [DataRow(100, 42, 0, 58)]
+    [DataRow(28, 100, 72, 0)]
+    public async Task GetUsage_LimitReachedPreservesEachWindowsRemainingUsage(
+        int shortTermUsed, int weeklyUsed, int shortTermRemaining, int weeklyRemaining)
+    {
+        var handler = new StubHandler(HttpStatusCode.OK, $$"""
+            {
+              "rate_limit": {
+                "limit_reached": true,
+                "primary_window": {
+                  "used_percent": {{shortTermUsed}},
+                  "limit_window_seconds": 18000
+                },
+                "secondary_window": {
+                  "used_percent": {{weeklyUsed}},
+                  "limit_window_seconds": 604800
+                }
+              }
+            }
+            """);
+        var service = new CodexUsageService(new AuthFileReader(), new HttpClient(handler));
+
+        var snapshot = await service.GetUsageAsync(CreateProfile());
+
+        Assert.AreEqual((double)shortTermRemaining, snapshot.ShortTerm?.RemainingPercent);
+        Assert.AreEqual((double)weeklyRemaining, snapshot.Weekly?.RemainingPercent);
+    }
+
+    [DataTestMethod]
+    [DataRow("[]")]
+    [DataRow("null")]
+    [DataRow("42")]
+    [DataRow("{}")]
+    [DataRow("{\"rate_limit\": {}}")]
+    [DataRow("{\"rate_limit\": {\"primary_window\": {\"reset_at\": 2000000000}}}")]
+    [DataRow("{\"rate_limit\": {\"primary_window\": {\"used_percent\": 1e309}}}")]
+    public async Task GetUsage_RejectsResponsesWithoutUsableWindows(string responseBody)
+    {
+        var handler = new StubHandler(HttpStatusCode.OK, responseBody);
+        var service = new CodexUsageService(new AuthFileReader(), new HttpClient(handler));
+
+        await Assert.ThrowsExceptionAsync<UsageServiceException>(() => service.GetUsageAsync(CreateProfile()));
+    }
+
+    [TestMethod]
+    public async Task GetUsage_ReportsNetworkFailuresWhileReadingResponseBody()
+    {
+        var handler = new StubHandler(HttpStatusCode.OK, "")
+        {
+            ResponseContent = new FailingContent()
+        };
+        var service = new CodexUsageService(new AuthFileReader(), new HttpClient(handler));
+
+        var exception = await Assert.ThrowsExceptionAsync<UsageServiceException>(() => service.GetUsageAsync(CreateProfile()));
+
+        StringAssert.Contains(exception.Message, "network request failed");
+    }
+
+    [TestMethod]
+    public async Task GetUsage_TimeoutIncludesReadingResponseBody()
+    {
+        var handler = new StubHandler(HttpStatusCode.OK, "")
+        {
+            ResponseContent = new WaitingContent()
+        };
+        using var client = new HttpClient(handler) { Timeout = TimeSpan.FromMilliseconds(100) };
+        var service = new CodexUsageService(new AuthFileReader(), client);
+
+        var exception = await Assert.ThrowsExceptionAsync<UsageServiceException>(() =>
+            service.GetUsageAsync(CreateProfile()).WaitAsync(TimeSpan.FromSeconds(5)));
+
+        StringAssert.Contains(exception.Message, "timed out");
+    }
+
+    [TestMethod]
+    public async Task GetUsage_PreservesCallerCancellationWhileReadingResponseBody()
+    {
+        var content = new WaitingContent();
+        var handler = new StubHandler(HttpStatusCode.OK, "") { ResponseContent = content };
+        using var client = new HttpClient(handler);
+        using var cancellation = new CancellationTokenSource();
+        var service = new CodexUsageService(new AuthFileReader(), client);
+
+        var pendingUsage = service.GetUsageAsync(CreateProfile(), cancellation.Token);
+        await content.ReadStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        cancellation.Cancel();
+
+        await Assert.ThrowsExceptionAsync<TaskCanceledException>(() => pendingUsage.WaitAsync(TimeSpan.FromSeconds(5)));
+    }
+
     [TestMethod]
     public async Task GetUsage_RejectsConfiguredNonOpenAiHostBeforeSendingToken()
     {
@@ -136,6 +227,7 @@ public sealed class CodexUsageServiceTests
         public int RequestCount { get; private set; }
         public Uri? LastRequestUri { get; private set; }
         public string? LastAccountHeader { get; private set; }
+        public HttpContent? ResponseContent { get; init; }
 
         protected override Task<HttpResponseMessage> SendAsync(
             HttpRequestMessage request,
@@ -149,8 +241,41 @@ public sealed class CodexUsageServiceTests
 
             return Task.FromResult(new HttpResponseMessage(_statusCode)
             {
-                Content = new StringContent(_responseBody, Encoding.UTF8, "application/json")
+                Content = ResponseContent ?? new StringContent(_responseBody, Encoding.UTF8, "application/json")
             });
+        }
+    }
+
+    private sealed class FailingContent : HttpContent
+    {
+        protected override Task SerializeToStreamAsync(Stream stream, TransportContext? context) =>
+            throw new HttpRequestException("Synthetic connection failure.");
+
+        protected override bool TryComputeLength(out long length)
+        {
+            length = 0;
+            return false;
+        }
+    }
+
+    private sealed class WaitingContent : HttpContent
+    {
+        public TaskCompletionSource ReadStarted { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        protected override Task SerializeToStreamAsync(Stream stream, TransportContext? context) =>
+            SerializeToStreamAsync(stream, context, CancellationToken.None);
+
+        protected override async Task SerializeToStreamAsync(
+            Stream stream, TransportContext? context, CancellationToken cancellationToken)
+        {
+            ReadStarted.TrySetResult();
+            await Task.Delay(Timeout.InfiniteTimeSpan, cancellationToken);
+        }
+
+        protected override bool TryComputeLength(out long length)
+        {
+            length = 0;
+            return false;
         }
     }
 }

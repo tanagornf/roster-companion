@@ -58,6 +58,18 @@ public sealed class AuthFileReaderTests
         Assert.AreEqual(166, credentials.LastRefresh.Value.Millisecond);
     }
 
+    [DataTestMethod]
+    [DataRow("[]")]
+    [DataRow("null")]
+    [DataRow("42")]
+    public async Task ReadCredentials_RejectsNonObjectJsonAsAnAuthFileError(string json)
+    {
+        await File.WriteAllTextAsync(Path.Combine(_temporaryDirectory, "auth.json"), json);
+        var reader = new AuthFileReader();
+
+        await Assert.ThrowsExceptionAsync<AuthFileException>(() => reader.ReadCredentialsAsync(_temporaryDirectory));
+    }
+
     private void WriteAuth(string email, string accountId, string subject, string plan, string lastRefresh)
     {
         var jwtPayload = JsonSerializer.Serialize(new Dictionary<string, object?>

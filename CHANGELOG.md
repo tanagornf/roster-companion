@@ -4,6 +4,22 @@ All notable changes to this project will be documented here. The format follows 
 
 ## [Unreleased]
 
+## [0.1.3] - 2026-10-11
+
+### Fixed
+
+- Five-hour and weekly usage now retain their individual percentages when only one limit is reached.
+- Invalid or empty usage responses preserve cached data and show a handled error; request timeouts also cover reading the response body.
+- Malformed authentication files report an authentication error instead of an unexpected exception.
+- Cancelling a switch after credential activation still restores the previous credentials and desktop session.
+- Desktop enrollment preparation failures preserve the current account and reopen the app after a partial shutdown.
+- Account changes, enrollment, removal, alias edits, and usage refreshes cannot overlap. Cancelling enrollment remains available while other actions are disabled.
+- Alias edits update the selector and search results immediately.
+
+### Changed
+
+- Background checks no longer rewrite profiles or replace the status message when no usage refresh is due.
+
 ## [0.1.2] - 2026-09-27
 
 ### Changed
@@ -54,7 +70,8 @@ All notable changes to this project will be documented here. The format follows 
 - Added bounded backups, validation, and rollback around account activation.
 - Added locked dependency restore, vulnerability auditing, repository safety scanning, and isolated packaged-app startup checks.
 
-[Unreleased]: https://github.com/tanagornf/roster-companion/compare/v0.1.2...HEAD
+[Unreleased]: https://github.com/tanagornf/roster-companion/compare/v0.1.3...HEAD
+[0.1.3]: https://github.com/tanagornf/roster-companion/compare/v0.1.2...v0.1.3
 [0.1.2]: https://github.com/tanagornf/roster-companion/compare/v0.1.1...v0.1.2
 [0.1.1]: https://github.com/tanagornf/roster-companion/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/tanagornf/roster-companion/releases/tag/v0.1.0

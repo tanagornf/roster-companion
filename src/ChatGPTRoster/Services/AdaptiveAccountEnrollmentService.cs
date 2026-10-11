@@ -84,13 +84,15 @@ public sealed class AdaptiveAccountEnrollmentService : IAccountEnrollmentService
         var profilePath = Path.Combine(_paths.ProfilesDirectory, profileId);
         var temporaryProfile = new AccountProfile { Id = profileId, ProfilePath = profilePath };
         var closedForPreparation = false;
+        var recoveryRequired = false;
 
         try
         {
             if (originalProcess.WasRunning)
             {
-                await _desktopProcessService.CloseAsync(cancellationToken);
+                // Shutdown can close the window before reporting a failure.
                 closedForPreparation = true;
+                await _desktopProcessService.CloseAsync(cancellationToken);
             }
 
             await _desktopSessionService.BackupAsync(currentProfile, cancellationToken);
@@ -98,6 +100,7 @@ public sealed class AdaptiveAccountEnrollmentService : IAccountEnrollmentService
             await AtomicFile.CopyAsync(ambientAuth, recoveryAuth, cancellationToken);
 
             Directory.CreateDirectory(profilePath);
+            recoveryRequired = true;
             File.Delete(ambientAuth);
             await _desktopSessionService.RestoreOrClearAsync(temporaryProfile, cancellationToken);
 
@@ -140,20 +143,26 @@ public sealed class AdaptiveAccountEnrollmentService : IAccountEnrollmentService
         {
             try
             {
-                var currentProcess = await _desktopProcessService.CaptureAsync(CancellationToken.None);
-                if (currentProcess.WasRunning)
+                // Preparation failures leave the live credential/session untouched. Only restore
+                // once both backups have completed and destructive preparation has begun.
+                if (recoveryRequired)
                 {
-                    await _desktopProcessService.CloseAsync(CancellationToken.None);
+                    var currentProcess = await _desktopProcessService.CaptureAsync(CancellationToken.None);
+                    if (currentProcess.WasRunning)
+                    {
+                        await _desktopProcessService.CloseAsync(CancellationToken.None);
+                    }
+
+                    if (!File.Exists(recoveryAuth))
+                    {
+                        throw new IOException("The enrollment recovery credential is unavailable.");
+                    }
+
+                    await AtomicFile.CopyAsync(recoveryAuth, ambientAuth, CancellationToken.None);
+                    await _desktopSessionService.RestoreOrClearAsync(currentProfile, CancellationToken.None);
                 }
 
-                if (!File.Exists(recoveryAuth))
-                {
-                    throw new IOException("The enrollment recovery credential is unavailable.");
-                }
-
-                await AtomicFile.CopyAsync(recoveryAuth, ambientAuth, CancellationToken.None);
-                await _desktopSessionService.RestoreOrClearAsync(currentProfile, CancellationToken.None);
-                if (originalProcess.WasRunning)
+                if (originalProcess.WasRunning && (recoveryRequired || closedForPreparation))
                 {
                     await _desktopProcessService.ReopenAsync(originalProcess, CancellationToken.None);
                     closedForPreparation = false;
@@ -162,7 +171,9 @@ public sealed class AdaptiveAccountEnrollmentService : IAccountEnrollmentService
             catch (Exception recoveryException)
             {
                 throw new AccountEnrollmentException(
-                    $"Account login failed and automatic recovery was incomplete. The recovery backup remains at {recoveryAuth}.",
+                    recoveryRequired
+                        ? $"Account login failed and automatic recovery was incomplete. The recovery backup remains at {recoveryAuth}."
+                        : "Account login failed before changing accounts. The previous account was preserved, but the ChatGPT desktop app could not be reopened.",
                     new AggregateException(exception, recoveryException));
             }
             finally
@@ -176,7 +187,9 @@ public sealed class AdaptiveAccountEnrollmentService : IAccountEnrollmentService
             }
 
             throw new AccountEnrollmentException(
-                "The new account was not added. The previous ChatGPT account and session were restored.",
+                recoveryRequired
+                    ? "The new account was not added. The previous ChatGPT account and session were restored."
+                    : "The new account was not added. The previous ChatGPT account and session were preserved.",
                 exception);
         }
         finally

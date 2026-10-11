@@ -40,9 +40,9 @@ The dropdown shows the active account, aliases, plan, five-hour usage, weekly us
 
 ## Install a release
 
-**[Download RosterCompanion.exe for Windows x64](https://github.com/tanagornf/roster-companion/releases/download/v0.1.2/RosterCompanion.exe)** — save it in a permanent folder and double-click it. No installer or separate .NET installation is required.
+**[Download RosterCompanion.exe for Windows x64](https://github.com/tanagornf/roster-companion/releases/download/v0.1.3/RosterCompanion.exe)** — save it in a permanent folder and double-click it. No installer or separate .NET installation is required.
 
-The [v0.1.2 release page](https://github.com/tanagornf/roster-companion/releases/tag/v0.1.2) also has a ZIP with documentation and license notices, plus `SHA256SUMS.txt` for verifying either download.
+The [v0.1.3 release page](https://github.com/tanagornf/roster-companion/releases/tag/v0.1.3) also has a ZIP with documentation and license notices, plus `SHA256SUMS.txt` for verifying either download.
 
 1. Save `RosterCompanion.exe` in a permanent folder and run it. If using the ZIP, extract it first.
 2. Bring ChatGPT to the foreground. Confirm the detected current account once.
@@ -76,7 +76,7 @@ dotnet run --project .\src\ChatGPTRoster\ChatGPTRoster.csproj
 Create a self-contained package:
 
 ```powershell
-.\scripts\Build-Release.ps1 -Version 0.1.2
+.\scripts\Build-Release.ps1 -Version 0.1.3
 ```
 
 ## Security boundaries

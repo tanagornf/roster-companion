@@ -13,16 +13,20 @@ public sealed class AccountRowViewModel : ObservableObject
         AccountProfile profile,
         Action<AccountRowViewModel> switchAccount,
         Action<AccountRowViewModel> renameAlias,
-        Action<AccountRowViewModel> removeAccount)
+        Action<AccountRowViewModel> removeAccount,
+        Func<bool>? canManageAccounts = null)
     {
         Profile = profile;
         _switchAccount = switchAccount;
         _renameAlias = renameAlias;
         _removeAccount = removeAccount;
 
-        SwitchAccountCommand = new RelayCommand(_ => _switchAccount(this), _ => !IsActive);
-        RenameAliasCommand = new RelayCommand(_ => _renameAlias(this));
-        RemoveAccountCommand = new RelayCommand(_ => _removeAccount(this), _ => CanRemove);
+        SwitchAccountCommand = new RelayCommand(_ => _switchAccount(this),
+            _ => !IsActive && (canManageAccounts?.Invoke() ?? true));
+        RenameAliasCommand = new RelayCommand(_ => _renameAlias(this),
+            _ => canManageAccounts?.Invoke() ?? true);
+        RemoveAccountCommand = new RelayCommand(_ => _removeAccount(this),
+            _ => CanRemove && (canManageAccounts?.Invoke() ?? true));
     }
 
     public AccountProfile Profile { get; }
@@ -83,7 +87,13 @@ public sealed class AccountRowViewModel : ObservableObject
         OnPropertyChanged(nameof(IsUsageStale));
         OnPropertyChanged(nameof(UsageFreshnessText));
         OnPropertyChanged(nameof(CanRemove));
+        RefreshCommands();
+    }
+
+    public void RefreshCommands()
+    {
         (SwitchAccountCommand as RelayCommand)?.RaiseCanExecuteChanged();
+        (RenameAliasCommand as RelayCommand)?.RaiseCanExecuteChanged();
         (RemoveAccountCommand as RelayCommand)?.RaiseCanExecuteChanged();
     }
 

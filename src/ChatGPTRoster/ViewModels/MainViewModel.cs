@@ -28,8 +28,8 @@ public sealed class MainViewModel : ObservableObject
     private bool _isRefreshing;
     private bool _isEnrolling;
     private bool _isChangingAccount;
+    private bool _operationInProgress;
     private CancellationTokenSource? _enrollmentCancellation;
-    private readonly SemaphoreSlim _refreshGate = new(1, 1);
     private readonly Dictionary<string, int> _refreshFailures = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, DateTimeOffset> _retryAfter = new(StringComparer.OrdinalIgnoreCase);
 
@@ -67,8 +67,8 @@ public sealed class MainViewModel : ObservableObject
         AccountsView = CollectionViewSource.GetDefaultView(Accounts);
         AccountsView.Filter = MatchesSearch;
 
-        AddAccountCommand = new RelayCommand(_ => ToggleEnrollment());
-        RefreshCommand = new AsyncRelayCommand(RefreshAsync, () => Accounts.Count > 0);
+        AddAccountCommand = new RelayCommand(_ => ToggleEnrollment(), _ => IsEnrolling || !IsBusy);
+        RefreshCommand = new AsyncRelayCommand(RefreshAsync, () => Accounts.Count > 0 && !IsBusy);
     }
 
     public ObservableCollection<AccountRowViewModel> Accounts { get; } = [];
@@ -107,7 +107,6 @@ public sealed class MainViewModel : ObservableObject
             if (SetProperty(ref _isChangingAccount, value))
             {
                 OnPropertyChanged(nameof(SelectorLabel));
-                OnPropertyChanged(nameof(IsBusy));
             }
         }
     }
@@ -121,7 +120,7 @@ public sealed class MainViewModel : ObservableObject
             {
                 OnPropertyChanged(nameof(AddAccountLabel));
                 OnPropertyChanged(nameof(AddAccountGlyph));
-                OnPropertyChanged(nameof(IsBusy));
+                AddAccountCommand.RaiseCanExecuteChanged();
             }
         }
     }
@@ -130,7 +129,7 @@ public sealed class MainViewModel : ObservableObject
     public bool HasSearchResults => !HasAccounts || AccountsView.Cast<object>().Any();
     public AccountRowViewModel? ActiveAccount => Accounts.FirstOrDefault(account => account.IsActive);
     public string SelectorLabel => IsChangingAccount ? "Changing account…" : ActiveAccount?.DisplayName ?? "Add account";
-    public bool IsBusy => IsRefreshing || IsEnrolling || IsChangingAccount;
+    public bool IsBusy => _operationInProgress;
     public string AddAccountLabel => IsEnrolling ? "Cancel login" : "Add account";
     public string AddAccountGlyph => IsEnrolling ? "×" : "+";
     public RelayCommand AddAccountCommand { get; }
@@ -138,6 +137,11 @@ public sealed class MainViewModel : ObservableObject
 
     public async Task InitializeAsync()
     {
+        if (!TryBeginOperation())
+        {
+            return;
+        }
+
         try
         {
             var loadedProfiles = await _profileStore.LoadAsync();
@@ -180,6 +184,10 @@ public sealed class MainViewModel : ObservableObject
             StatusText = "Could not load local profiles";
             _showMessage("Profile load failed", exception.Message);
         }
+        finally
+        {
+            EndOperation();
+        }
 
         NotifyCollectionChanged();
         if (Accounts.Count > 0)
@@ -189,7 +197,7 @@ public sealed class MainViewModel : ObservableObject
     }
 
     private AccountRowViewModel CreateRow(AccountProfile profile) =>
-        new(profile, SwitchAccount, RenameAlias, RemoveAccount);
+        new(profile, SwitchAccount, RenameAlias, RemoveAccount, () => !IsBusy);
 
     private bool MatchesSearch(object item)
     {
@@ -204,6 +212,11 @@ public sealed class MainViewModel : ObservableObject
 
     private async Task AddAccountAsync()
     {
+        if (!TryBeginOperation())
+        {
+            return;
+        }
+
         using var cancellation = new CancellationTokenSource();
         _enrollmentCancellation = cancellation;
         IsEnrolling = true;
@@ -249,7 +262,7 @@ public sealed class MainViewModel : ObservableObject
         {
             StatusText = "Account login cancelled";
         }
-        catch (Exception exception) when (exception is AccountEnrollmentException or AuthFileException)
+        catch (Exception exception)
         {
             StatusText = "Account was not added";
             _showMessage("Account login failed", exception.Message);
@@ -262,6 +275,8 @@ public sealed class MainViewModel : ObservableObject
             }
 
             IsEnrolling = false;
+            NotifyActiveAccountChanged();
+            EndOperation();
         }
     }
 
@@ -284,38 +299,43 @@ public sealed class MainViewModel : ObservableObject
 
     private async void SwitchAccount(AccountRowViewModel target)
     {
-        var current = Accounts.FirstOrDefault(account => account.IsActive);
-        if (current is null)
+        if (target.IsActive || !Accounts.Contains(target) || !TryBeginOperation())
         {
-            _showMessage("No active account", "Roster Companion could not identify the account currently in use.");
-            return;
-        }
-
-        if (!_confirmSwitch(target.Profile))
-        {
-            StatusText = "Account change cancelled";
-            return;
-        }
-
-        TaskActivityState taskState;
-        try
-        {
-            StatusText = "Checking for active Codex tasks…";
-            taskState = await _taskDetector.GetActivityStateAsync();
-        }
-        catch
-        {
-            taskState = TaskActivityState.Unknown;
-        }
-
-        if (taskState != TaskActivityState.Idle && !_confirmTaskInterruption(taskState))
-        {
-            StatusText = "Account change cancelled";
             return;
         }
 
         try
         {
+            var current = Accounts.FirstOrDefault(account => account.IsActive);
+            if (current is null)
+            {
+                _showMessage("No active account", "Roster Companion could not identify the account currently in use.");
+                return;
+            }
+
+            if (!_confirmSwitch(target.Profile))
+            {
+                StatusText = "Account change cancelled";
+                return;
+            }
+
+            TaskActivityState taskState;
+            try
+            {
+                StatusText = "Checking for active Codex tasks…";
+                taskState = await _taskDetector.GetActivityStateAsync();
+            }
+            catch
+            {
+                taskState = TaskActivityState.Unknown;
+            }
+
+            if (taskState != TaskActivityState.Idle && !_confirmTaskInterruption(taskState))
+            {
+                StatusText = "Account change cancelled";
+                return;
+            }
+
             IsChangingAccount = true;
             StatusText = $"Changing to {target.DisplayName}…";
             await _accountSwitcher.SwitchAsync(current.Profile, target.Profile);
@@ -349,44 +369,71 @@ public sealed class MainViewModel : ObservableObject
                 _showMessage("Could not change account", exception.Message);
             }
         }
+        catch (Exception exception)
+        {
+            StatusText = "Account change failed";
+            _showMessage("Could not change account", exception.Message);
+        }
         finally
         {
             IsChangingAccount = false;
             NotifyActiveAccountChanged();
+            EndOperation();
         }
     }
 
     private async void RenameAlias(AccountRowViewModel account)
     {
-        var alias = _requestAlias(account.Profile);
-        if (alias is null)
-        {
-            return;
-        }
-
-        account.Profile.Alias = alias.Trim();
-        account.Refresh();
-        AccountsView.Refresh();
-        await SaveAsync("Alias updated");
-    }
-
-    private async void RemoveAccount(AccountRowViewModel account)
-    {
-        if (account.IsActive)
-        {
-            _showMessage("Active account", "Change to another account before removing this profile.");
-            return;
-        }
-
-        if (!_confirmRemove(account.Profile))
+        if (!Accounts.Contains(account) || !TryBeginOperation())
         {
             return;
         }
 
         try
         {
+            var alias = _requestAlias(account.Profile);
+            if (alias is null)
+            {
+                return;
+            }
+
+            account.Profile.Alias = alias.Trim();
+            account.Refresh();
+            AccountsView.Refresh();
+            OnPropertyChanged(nameof(HasSearchResults));
+            NotifyActiveAccountChanged();
+            await SaveAsync("Alias updated");
+        }
+        finally
+        {
+            EndOperation();
+        }
+    }
+
+    private async void RemoveAccount(AccountRowViewModel account)
+    {
+        if (!Accounts.Contains(account) || !TryBeginOperation())
+        {
+            return;
+        }
+
+        try
+        {
+            if (account.IsActive)
+            {
+                _showMessage("Active account", "Change to another account before removing this profile.");
+                return;
+            }
+
+            if (!_confirmRemove(account.Profile))
+            {
+                return;
+            }
+
             await _profileFileService.RemoveManagedProfileAsync(account.Profile);
             Accounts.Remove(account);
+            _refreshFailures.Remove(account.Profile.Id);
+            _retryAfter.Remove(account.Profile.Id);
             AccountsView.Refresh();
             NotifyCollectionChanged();
             await SaveAsync("Local profile removed");
@@ -396,17 +443,20 @@ public sealed class MainViewModel : ObservableObject
             StatusText = "Profile removal failed";
             _showMessage("Could not remove account", exception.Message);
         }
+        finally
+        {
+            EndOperation();
+        }
     }
 
     private async Task RefreshAsync()
     {
-        if (!await _refreshGate.WaitAsync(0))
+        if (!TryBeginOperation())
         {
             return;
         }
 
         IsRefreshing = true;
-        OnPropertyChanged(nameof(IsBusy));
         StatusText = "Refreshing account information…";
         try
         {
@@ -426,8 +476,7 @@ public sealed class MainViewModel : ObservableObject
         finally
         {
             IsRefreshing = false;
-            OnPropertyChanged(nameof(IsBusy));
-            _refreshGate.Release();
+            EndOperation();
         }
     }
 
@@ -438,7 +487,7 @@ public sealed class MainViewModel : ObservableObject
             account.RefreshCountdown();
         }
 
-        if (!networkAllowed || !await _refreshGate.WaitAsync(0))
+        if (!networkAllowed || !TryBeginOperation())
         {
             return;
         }
@@ -446,6 +495,7 @@ public sealed class MainViewModel : ObservableObject
         try
         {
             var now = DateTimeOffset.UtcNow;
+            var refreshed = false;
             foreach (var account in Accounts)
             {
                 var due = UsageRefreshPolicy.IsDue(account.Profile.Usage.LastUpdatedAt, account.IsActive, now);
@@ -461,13 +511,17 @@ public sealed class MainViewModel : ObservableObject
                 }
 
                 await RefreshAccountAsync(account);
+                refreshed = true;
             }
 
-            await SaveAsync("Usage updated");
+            if (refreshed)
+            {
+                await SaveAsync("Usage updated");
+            }
         }
         finally
         {
-            _refreshGate.Release();
+            EndOperation();
         }
     }
 
@@ -539,5 +593,36 @@ public sealed class MainViewModel : ObservableObject
     {
         OnPropertyChanged(nameof(ActiveAccount));
         OnPropertyChanged(nameof(SelectorLabel));
+    }
+
+    // Account commands and timer callbacks run on the UI dispatcher. Hold this
+    // guard across awaits so credential changes, removals and refreshes cannot overlap.
+    private bool TryBeginOperation()
+    {
+        if (_operationInProgress)
+        {
+            return false;
+        }
+
+        _operationInProgress = true;
+        NotifyOperationChanged();
+        return true;
+    }
+
+    private void EndOperation()
+    {
+        _operationInProgress = false;
+        NotifyOperationChanged();
+    }
+
+    private void NotifyOperationChanged()
+    {
+        OnPropertyChanged(nameof(IsBusy));
+        AddAccountCommand.RaiseCanExecuteChanged();
+        RefreshCommand.RaiseCanExecuteChanged();
+        foreach (var account in Accounts)
+        {
+            account.RefreshCommands();
+        }
     }
 }
